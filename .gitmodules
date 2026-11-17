@@ -1,0 +1,3 @@
+[submodule "OuterSSH"]
+	path = OuterSSH
+	url = https://github.com/outergroup/OuterSSH

@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char socket_host_display_script[] = R"OUTERSSHJS(@SOCKET_HOST_DISPLAY_SCRIPT@)OUTERSSHJS";
