@@ -6,8 +6,9 @@ OuterSSH connects to your server and runs a local HTTP proxy, and the web view
 uses that proxy, so pages load from the server's loopback ports and Unix sockets.
 
 - On launch, and when you press Home, it loads the server's configured homepage
-  (`~/.config/outerssh/homepage`). Without one, it opens
-  [Outer Shell](https://outershell.org) if it's running for your user.
+  (see [Server-defined homepage](https://github.com/outergroup/OuterSSH/blob/main/OuterSSH/README.md#server-defined-homepage)).
+  Installing [Outer Shell](https://outershell.org) on a server makes it that
+  server's homepage, on Linux, macOS, and Windows.
 - Type a port and press Enter to load `http://localhost:<port>/` on the server.
 
 ## Configuration
@@ -41,17 +42,15 @@ Run these from a Developer Command Prompt for your architecture, and use
 
 ### Server helpers
 
-OuterSSH uploads a small helper to the server when a page uses a Unix socket,
-such as Outer Shell. Build the Linux helpers into `helpers/` (git-ignored) with
-the script in a recent OuterSSH checkout (update the `OuterSSH` submodule if it
-doesn't have the script yet; it needs Docker):
+OuterSSH uploads a small helper to the server when it first needs one, such as
+to open a Unix socket like Outer Shell's. Configuring the build downloads signed
+helpers for Linux, macOS, and Windows servers from outerssh.org into `helpers/`
+(git-ignored), checking each against `helpers.sha256`, and the build copies
+`helpers/` next to `outerssh-client.exe`. Ship that folder with the app.
 
-```sh
-OuterSSH/Scripts/build_outerssh_linux_helpers.sh helpers
-```
-
-The build copies `helpers/` next to `outerssh-client.exe`. Ship that folder with
-the app.
+To use helpers you build yourself (see `OuterSSH/Release/README.md`), put them in
+`helpers/` and their hashes in `helpers.sha256`; the build only downloads files
+whose hash doesn't match.
 
 ### Ed25519 keys
 
@@ -62,9 +61,6 @@ OpenSSL instead: `vcpkg install openssl:arm64-windows-static` and add
 
 ## Limitations
 
-- Opens Outer Shell only on Linux servers. The starter bundles only the Linux
-  helpers; macOS and Windows servers need their own helper builds for Outer
-  Shell's launchd socket or named pipe. Root-owned sockets need `sudo`, which
-  the starter declines.
-- Supports `http+unix` and `http://localhost` homepages only.
+- Root-owned sockets need `sudo`, which the starter declines.
+- Supports `http+unix`, `http+pipe` and `http://localhost` homepages only.
 - No saved settings, tabs or bookmarks: edit the code.

@@ -1,0 +1,15 @@
+# SHA-256 hashes of the OuterSSH server helpers this app bundles, from
+# https://outerssh.org/download/outerssh/0.5.4/SHA256SUMS. The build downloads
+# any that are missing into helpers/ and checks them against these hashes. To
+# update, change the version in the build and copy the new lines here.
+af2242d1dcbb077753a8b0665e8ea639f9aad26f76ee0043d5e7face5cd3f62a  outerssh-helper-linux-aarch64-glibc.gz
+992394b8cf04b84440e05cdc39b17e5973cd074d7a921c981b17841fadae917c  outerssh-helper-linux-aarch64-musl.gz
+53a4e885d3d62ea5d9f151efa163345c8057ac5ead5c2eb2e98f5a2c9cd691ad  outerssh-helper-linux-armv7-glibc.gz
+071b0199bdf27acca405b9ce06fa150c2c9be9572c4b876dc6cd0d588cd03945  outerssh-helper-linux-armv7-musl.gz
+61af10802702d4192b4ed047f8e854d0a280675f10ee8cbdb3d01a64103c8f4e  outerssh-helper-linux-x86_64-glibc.gz
+edf295dbc1dc144bb89c37a9d2fbbaedf148bf95ea5be9fa078886e9910f6249  outerssh-helper-linux-x86_64-musl.gz
+e58ac59ec2bf520ae6dcd4e847f7dc4ef345f62cf8c95e18e5dcb19cf29b4699  outerssh-helper-macos-arm64.gz
+a57ba7593a03c1271209b24614c2bd865fc055482cac6c8aed9c80dce32781d8  outerssh-helper-macos-x86_64.gz
+b7b3563e274fe584c44831440974a78405990de511233128d07d0fadc8a3160b  outerssh-helper-windows-arm64.tar.gz
+77071f76777eacfd148b988faba03c98df3182bb2fa8d58477913016122c5125  outerssh-helper-windows-x64.tar.gz
+eadcccbfd1a3c67458d6f71f56e4797a4971eca88a3bfa29f56b45c6c91f40e5  outerssh-helper-windows-x86.tar.gz

@@ -39,8 +39,19 @@ target_link_libraries(outerssh-client PRIVATE OuterSSH::OuterSSH
     "${webview2_SOURCE_DIR}/build/native/${WEBVIEW2_ARCH}/WebView2LoaderStatic.lib"
     comctl32 ole32 user32 version)
 
-# Bundles helpers/outerssh-helper-<platform>.gz next to the executable.
+# Downloads the OuterSSH server helpers listed in helpers.sha256 into helpers/ and
+# checks each against its hash. Files that are already there with the right hash
+# aren't downloaded again.
+set(OUTERSSH_HELPER_VERSION 0.5.4)
+file(STRINGS helpers.sha256 helper_pins REGEX "^[0-9a-f]+  ")
+foreach(pin IN LISTS helper_pins)
+    string(REGEX MATCH "^([0-9a-f]+)  (.+)$" pin "${pin}")
+    file(DOWNLOAD "https://outerssh.org/download/outerssh/${OUTERSSH_HELPER_VERSION}/${CMAKE_MATCH_2}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/helpers/${CMAKE_MATCH_2}" EXPECTED_HASH SHA256=${CMAKE_MATCH_1})
+endforeach()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/helpers.sha256")
+
+# Bundles helpers/ next to the executable.
 add_custom_target(outerssh-client-helpers ALL
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/helpers"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/helpers" "$<TARGET_FILE_DIR:outerssh-client>/helpers")
 add_dependencies(outerssh-client-helpers outerssh-client)

@@ -36,13 +36,7 @@ enum RequestKind : uint64_t {
     REQUEST_PROXY_DESTROY,
     REQUEST_POOL_DESTROY,
     REQUEST_HOMEPAGE,
-    REQUEST_FIND_OUTER_SHELL,
 };
-
-constexpr char find_outer_shell_command[] =
-    "if [ \"$(id -u)\" = 0 ]; then d=/run; else d=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; fi; "
-    "p=\"$d/org.outershell.OuterShell\"; [ -S \"$p\" ] && printf '%s' \"$p\"";
-constexpr char outer_shell_socket_suffix[] = "/org.outershell.OuterShell";
 
 struct App {
     HWND window = nullptr;
@@ -149,12 +143,6 @@ bool starts_with(const std::string &text, const char *prefix)
     return true;
 }
 
-bool ends_with(const std::string &text, const char *suffix)
-{
-    size_t length = std::strlen(suffix);
-    return text.size() >= length && text.compare(text.size() - length, length, suffix) == 0;
-}
-
 bool percent_decode(const std::string &text, std::string &result)
 {
     auto hex = [](char c) {
@@ -175,8 +163,8 @@ bool percent_decode(const std::string &text, std::string &result)
     return true;
 }
 
-// Converts http+unix:// and http://localhost homepages into URLs the OuterSSH proxy
-// understands. Extend this to support more homepage schemes.
+// Converts http+unix://, http+pipe:// and http://localhost homepages into URLs the
+// OuterSSH proxy understands. Extend this to support more homepage schemes.
 std::optional<std::string> convert_homepage(const std::string &url)
 {
     auto split = [&url](size_t start, std::string &authority, std::string &rest) {
@@ -189,11 +177,13 @@ std::optional<std::string> convert_homepage(const std::string &url)
     std::string authority, rest;
     char host[OUTERSSH_PROXY_SOCKET_HOST_CAPACITY];
     size_t host_length;
-    if (starts_with(url, "http+unix://")) {
+    bool unix_socket = starts_with(url, "http+unix://");
+    if (unix_socket || starts_with(url, "http+pipe://")) {
         split(12, authority, rest);
         std::string path;
-        if (!percent_decode(authority, path) ||
-            !outerssh_proxy_encode_unix_socket_host(path.data(), path.size(), host, sizeof(host), &host_length))
+        if (!percent_decode(authority, path) || !(unix_socket
+                ? outerssh_proxy_encode_unix_socket_host(path.data(), path.size(), host, sizeof(host), &host_length)
+                : outerssh_proxy_encode_named_pipe_host(path.data(), path.size(), host, sizeof(host), &host_length)))
             return std::nullopt;
         return "http://" + std::string(host, host_length) + rest;
     }
@@ -252,33 +242,13 @@ void homepage_received(const OuterSSHEvent &event)
         show_message(error_text(result.error));
         return;
     }
-    if (result.found) {
-        std::string url(result.url, result.url_length);
-        if (auto converted = convert_homepage(url)) load(*converted);
-        else show_message("This starter doesn't support the homepage " + url + ".");
+    if (!result.found) {
+        show_message("This server has no homepage. Type a port to open one of its web servers.");
         return;
     }
-    if (!outerssh_session_pool_execute_command(app.pool, find_outer_shell_command, sizeof(find_outer_shell_command) - 1,
-            nullptr, 0, tag(REQUEST_FIND_OUTER_SHELL)))
-        show_message("Could not look for Outer Shell.");
-}
-
-void outer_shell_found(const OuterSSHEvent &event)
-{
-    const auto &result = event.command_completed;
-    if (result.error.domain != OUTERSSH_ERROR_NONE) {
-        show_message(error_text(result.error));
-        return;
-    }
-    std::string path;
-    if (result.standard_output) path.assign(reinterpret_cast<const char *>(result.standard_output), result.standard_output_length);
-    char host[OUTERSSH_PROXY_SOCKET_HOST_CAPACITY];
-    size_t host_length;
-    if (result.exit_status == 0 && !path.empty() && path[0] == '/' && ends_with(path, outer_shell_socket_suffix) &&
-        outerssh_proxy_encode_unix_socket_host(path.data(), path.size(), host, sizeof(host), &host_length))
-        load("http://" + std::string(host, host_length) + "/");
-    else
-        show_message("Outer Shell isn't running on this server.");
+    std::string url(result.url, result.url_length);
+    if (auto converted = convert_homepage(url)) load(*converted);
+    else show_message("This starter doesn't support the homepage " + url + ".");
 }
 
 void layout()
@@ -399,15 +369,17 @@ void create_webview()
 }
 
 // OuterSSH uploads a helper to the server, which checks the server's socket
-// allowlist. The build copies helpers/outerssh-helper-<platform>.gz next to the executable.
+// allowlist. The build downloads the helpers and copies them next to the
+// executable. Windows helpers are tar archives.
 void provide_helper(const OuterSSHEvent &event)
 {
     const auto &question = event.helper_binary_needed;
+    std::wstring platform = widen(question.platform, question.platform_length);
+    const wchar_t *extension = platform.rfind(L"windows-", 0) == 0 ? L".tar.gz" : L".gz";
     wchar_t executable[MAX_PATH];
     DWORD length = GetModuleFileNameW(nullptr, executable, MAX_PATH);
     std::wstring path(executable, length);
-    path = path.substr(0, path.find_last_of(L'\\') + 1) + L"helpers\\outerssh-helper-" +
-        widen(question.platform, question.platform_length) + L".gz";
+    path = path.substr(0, path.find_last_of(L'\\') + 1) + L"helpers\\outerssh-helper-" + platform + extension;
     HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, nullptr);
     LARGE_INTEGER size;
@@ -466,9 +438,6 @@ void handle_event(const OuterSSHEvent &event)
     }
     case OUTERSSH_EVENT_HOMEPAGE_RECEIVED:
         if (current && !app.closing) homepage_received(event);
-        break;
-    case OUTERSSH_EVENT_COMMAND_COMPLETED:
-        if (current && kind == REQUEST_FIND_OUTER_SHELL && !app.closing) outer_shell_found(event);
         break;
     case OUTERSSH_EVENT_DESTROYED:
         if (kind == REQUEST_PROXY_DESTROY) app.proxy = nullptr;
